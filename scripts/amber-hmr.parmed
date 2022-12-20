@@ -1,0 +1,3 @@
+HMassRepartition dowater
+outparm ./clusterAAA/civsd_AAA_hmr.prmtop
+quit

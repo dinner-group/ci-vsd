@@ -1,0 +1,22 @@
+#!/bin/sh
+#SBATCH --job-name=charge
+#SBATCH --output=charge.out
+#SBATCH --error=charge.err
+#SBATCH --partition=dinner
+#SBATCH --account=pi-dinner
+#SBATCH --qos=dinner
+
+#SBATCH --time=24:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=48
+#SBATCH --mem=375G
+
+
+source ~/.zshrc
+
+conda activate /project/dinner/scguo/anaconda3/envs/py39
+
+# python ../python/displacement_q.py
+# python ../python/displacement_q_new.py
+python ./displacement-q.py

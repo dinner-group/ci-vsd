@@ -1,0 +1,34 @@
+1. Run "step1_pmepot_NVT.tcl" in VMD/TckTK Console to calculate 3D Electrostatic Maps (Change the psfname, dcdname, xscname, ... accordingly).
+
+   source step1_pmepot_NVT.tcl
+
+   Or on Unix/Mac terminal: 
+   
+   vmd -dispdev text -e step1_pmepot_NVT.tcl
+
+   The output of PMEPOT calculation is in a special data format "**.dx"
+  
+   !! Pay attention to the traj. size and the computer memory size. The calculation will crash if you load too many frames into VMD.
+  
+2. Run "step2-density-yz-place.py" to extract the Maps in the yz plane. You can modify the code to extract whatever data, along different planes/lines, you want. 
+   
+   modify the code after the note 
+   ##### MODIFY HEREAFTER #####
+
+   on Unix/Mac terminal: 
+   python step2-density-yz-plane.py  **.dx   
+   
+   The output data is in "y-coord  z-coord  E" format.
+
+   !! The PMEPOT output unit is in kcal/mol. Change it to eV by multipling (kBT/23.03), that is 0.596/23.03 for 300 K. This has been done in the code. If your simulation Temp is not 300 K, change it accordingly.
+   
+3. If you applied external potential/voltage, you need add this bias potential (e.g., linear interpolation of Vbias along z axis) to on the PMEPOT results.
+   
+   !! The PEMPOT calculated E at Zmin and Zmax are the same because of the periodic boundary condition used and are not zero, that is the offset.
+      
+   !! After subtracting the offset and adding the linear bias, the final data looks like: Zmin = 0 mV, Zmax = 0.5 mV
+      if you applied a 0.5 mV negative potential
+
+   See "step3_calc_1_ave_yz_slab.tcl" for a reference
+
+

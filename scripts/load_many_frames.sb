@@ -1,0 +1,56 @@
+#!/bin/sh
+#SBATCH --job-name=load-frames
+#SBATCH --output=load-frames.out
+#SBATCH --error=load-frames.err
+#SBATCH --partition=dinner-hm
+#SBATCH --account=pi-dinner
+#SBATCH --qos=dinner
+
+#SBATCH --time=48:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=48
+#SBATCH --mem-per-cpu=30G
+
+# NOTE DO NOT USE THE --mem= OPTION 
+
+# source ~/.bashrc
+source ~/.zshrc
+# zsh
+# conda init zsh
+
+module load vmd
+# conda activate py39
+# conda init zsh
+conda activate /project/dinner/scguo/anaconda3/envs/py39
+
+# Load the default version of GNU parallel.
+module load parallel
+
+# When running a large number of tasks simultaneously, it may be
+# necessary to increase the user process limit.
+ulimit -u 10000
+
+# This specifies the options used to run srun. The "-N1 -n1" options are
+# used to allocates a single core to each task.
+srun="srun --exclusive -N1 -n1"
+
+# This specifies the options used to run GNU parallel:
+#
+#   --delay of 0.2 prevents overloading the controlling node.
+#
+#   -j is the number of tasks run simultaneously.
+#
+#   The combination of --joblog and --resume create a task log that
+#   can be used to monitor progress.
+#
+parallel="parallel --delay 0.2 -j $SLURM_NTASKS --joblog runtask.log"
+
+echo "  started at `date`"
+topfile="/project/dinner/scguo/ci-vsd/models/MD-clustering-center/civsd.psf"
+echo $topfile
+# conda list
+echo $(which python)
+script="/project/dinner/scguo/ci-vsd/python/load_frames.py"
+$parallel "$srun python $script ../data/q_bin/q_{1}_{2}.txt $topfile ../data/q_bin/q{1}{2}.xtc" ::: {2..8} ::: {0..9}
+
+echo "  finished at `date`"

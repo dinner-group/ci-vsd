@@ -1,0 +1,36 @@
+#!/bin/sh
+#SBATCH --job-name=load-frames
+#SBATCH --output=load-frames.out
+#SBATCH --error=load-frames.err
+#SBATCH --partition=dinner-hm
+#SBATCH --account=pi-dinner
+#SBATCH --qos=dinner
+
+#SBATCH --time=48:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=16
+#SBATCH --mem=256G
+
+# source ~/.bashrc
+source ~/.zshrc
+# zsh
+# conda init zsh
+
+module load vmd
+# conda activate py39
+# conda init zsh
+conda activate /project/dinner/scguo/anaconda3/envs/py39
+
+echo "  started at `date`"
+topfile="/project/dinner/scguo/ci-vsd/civsd-all.prmtop"
+echo $topfile
+# conda list
+echo $(which python)
+script="/project/dinner/scguo/ci-vsd/python/load_frames.py"
+dir="/project/dinner/scguo/ci-vsd/pmepot"
+name=tse_pme_frames
+
+python $script $dir/$name.txt $topfile $dir/$name.dcd
+
+echo "  finished at `date`"
