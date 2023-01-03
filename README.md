@@ -44,6 +44,9 @@ Other useful utility functions and plotting functions are found in
 The `extq` package is provided as a package. The package can be installed
 by running `cd extq/` and `pip install -e .`
 
+To reproduce the DGA calculations, run the notebook `dga.ipynb` in `notebooks/figures` using the [example
+data](#data) provided.
+
 ### conda
 The easiest way to set up is to use `requirements.txt` and create a new
 Conda environment.
