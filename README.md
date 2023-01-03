@@ -3,9 +3,9 @@
 This repository contains code for analyzing simulations of Ci-VSD for [ref. 1][1].
 
 ## Data
-Example data to run the create [Figure 1](./notebooks/figures/FIG1_S4.ipynb) of the publication can
-be obtained as a file `data.tar.gz`. The tarball can be unzipped using `tar -xzvf data.tar.gz`
-and the files used to generate the appropriate plots.
+Example data to run the create [Figure 3](./notebooks/figures/FIG1_S4.ipynb) of the publication can
+be obtained as a file `data.tar.gz` from [Zenodo](https://zenodo.org/record/7502084). The tarball can be unzipped
+using `tar -xzvf data.tar.gz`and the files used to generate the appropriate plots.
 
 ## Environment
 Most of the analysis is performed in [Jupyter notebooks](./notebooks/). The raw data
