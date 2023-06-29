@@ -1,9 +1,9 @@
-# ci-vsd
+# Dynamics of activation in the voltage-sensing domain of Ci-VSP
 
 This repository contains code for analyzing simulations of Ci-VSD for [ref. 1][1].
 
 ## Data
-Example data to run the create [Figure 3](./notebooks/figures/FIG1_S4.ipynb) of the publication can
+Example data to run the create [Figure 5](./notebooks/figures/FIG1_S4.ipynb) of the publication can
 be obtained as a file `data.tar.gz` from [Zenodo](https://zenodo.org/record/7502084). The tarball can be unzipped
 using `tar -xzvf data.tar.gz`and the files used to generate the appropriate plots.
 
@@ -11,7 +11,7 @@ using `tar -xzvf data.tar.gz`and the files used to generate the appropriate plot
 Most of the analysis is performed in [Jupyter notebooks](./notebooks/). The raw data
 is not in the repository, but can be obtained by contactinng [Spencer Guo](mailto:scguo@uchicago.edu)
 or [Aaron Dinner](mailto:dinner@uchicago.edu). Notebooks to produce relevant figures are under the 
-subfolder [figures](./notebooks/figures). 
+subfolder [figures](./notebooks/figures) along with a `README` file that provides further description. 
 
 The environment to setup the analysis is using Python 3.9.x, and detailed
 packages used are listed in `requirements.txt`.
@@ -34,7 +34,7 @@ The primary dependencies are Jupyter notebooks
     - `pyemma` ([PyEMMA](http://www.emma-project.org/))
     - `mdtraj` ([MDTraj](https://www.mdtraj.org/))
 - DGA/TPT analysis (from the Dinner group)
-    - `extq` ([https://github.com/chatipat/extq])
+    - `extq` (DGA calculations)
     - `ivac` ([Integrated VAC](https://github.com/chatipat/ivac))
 
 Other useful utility functions and plotting functions are found in 
