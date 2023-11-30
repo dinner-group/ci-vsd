@@ -1,7 +1,13 @@
 import numba as nb
 import numpy as np
+from more_itertools import zip_equal
 
-from ..extended import moving_matmul
+from ..moving_semigroup import moving_semigroup
+
+__all__ = [
+    "extended_rate",
+    "extended_current",
+]
 
 
 def extended_rate(
@@ -12,6 +18,7 @@ def extended_rate(
     in_domain,
     rxn_coord,
     lag,
+    normalize=True,
 ):
     """Estimate the TPT rate with extended committors.
 
@@ -34,6 +41,8 @@ def extended_rate(
         conditions.
     lag : int
         Lag time in units of frames.
+    normalize : bool, optional
+        If True (default), normalize `weights` to one.
 
     Returns
     -------
@@ -41,22 +50,28 @@ def extended_rate(
         Estimated TPT rate.
 
     """
-    numer = 0.0
-    denom = lag * sum(np.sum(w) for w in weights)
-    for qp, qm, w, m, d, h in zip(
+    assert lag > 0
+    n_indices = None
+    out = 0.0
+    for qp, qm, w, m, d, h in zip_equal(
         forward_q, backward_q, weights, transitions, in_domain, rxn_coord
     ):
-        assert np.all(w[-lag:] == 0.0)
         n_frames = w.shape[0]
-        n_indices = m.shape[0]
+        n_indices = m.shape[0] if n_indices is None else n_indices
         assert qp.shape == (n_indices, n_frames)
         assert qm.shape == (n_indices, n_frames)
         assert w.shape == (n_frames,)
         assert m.shape == (n_indices, n_indices, n_frames - 1)
         assert d.shape == (n_indices, n_frames)
         assert h.shape == (n_indices, n_frames)
-        numer += _extended_rate_helper(qp, qm, w, m, d, h, lag)
-    return numer / denom
+        assert np.all(w[max(0, n_frames - lag) :] == 0.0)
+        if n_frames <= lag:
+            continue
+        out += _extended_rate_helper(qp, qm, w, m, d, h, lag)
+    if normalize:
+        wsum = sum(np.sum(w) for w in weights)
+        out /= wsum
+    return out
 
 
 @nb.njit
@@ -68,7 +83,6 @@ def _extended_rate_helper(qp, qm, w, m, d, h, lag):
     a = np.zeros((nf - 1, 2, ni + 1, 2, ni + 1))
 
     for t in range(nf - 1):
-
         # before current time
         for j in range(ni):
             if d[j, t + 1]:
@@ -93,7 +107,7 @@ def _extended_rate_helper(qp, qm, w, m, d, h, lag):
         a[t, 1, ni, 1, ni] = 1.0
 
     a = a.reshape(nf - 1, 2 * (ni + 1), 2 * (ni + 1))
-    a = moving_matmul(a, lag)
+    a = moving_semigroup(a, lag, np.dot)
     a = a.reshape(nf - lag, 2, (ni + 1), 2, (ni + 1))
     a = a[:, 0, :, 1, :]
 
@@ -108,7 +122,7 @@ def _extended_rate_helper(qp, qm, w, m, d, h, lag):
         for j in range(ni):
             result += w[t] * a[t, ni, j] * qp[j, t + lag]
         result += w[t] * a[t, ni, ni]
-    return result
+    return result / lag
 
 
 def extended_current(
@@ -119,6 +133,7 @@ def extended_current(
     in_domain,
     cv,
     lag,
+    normalize=True,
 ):
     """Estimate the reactive current with extended committors.
 
@@ -140,6 +155,8 @@ def extended_current(
         Collective variable at each frame.
     lag : int
         Lag time in units of frames.
+    normalize : bool, optional
+        If True (default), normalize `weights` to one.
 
     Returns
     -------
@@ -147,23 +164,31 @@ def extended_current(
         Estimated reactive current at each frame.
 
     """
-    result = []
-    denom = lag * sum(np.sum(w) for w in weights)
-    for qp, qm, w, m, d, f in zip(
+    assert lag > 0
+    n_indices = None
+    out = []
+    for qp, qm, w, m, d, f in zip_equal(
         forward_q, backward_q, weights, transitions, in_domain, cv
     ):
-        assert np.all(w[-lag:] == 0.0)
         n_frames = w.shape[0]
-        n_indices = m.shape[0]
+        n_indices = m.shape[0] if n_indices is None else n_indices
         assert qp.shape == (n_indices, n_frames)
         assert qm.shape == (n_indices, n_frames)
         assert w.shape == (n_frames,)
         assert m.shape == (n_indices, n_indices, n_frames - 1)
         assert d.shape == (n_indices, n_frames)
         assert f.shape == (n_indices, n_frames)
-        numer = _extended_current_helper(qp, qm, w, m, d, f, lag)
-        result.append(numer / denom)
-    return result
+        assert np.all(w[max(0, n_frames - lag) :] == 0.0)
+        if n_frames <= lag:
+            j = np.zeros((n_indices, n_frames))
+        else:
+            j = _extended_current_helper(qp, qm, w, m, d, f, lag)
+        out.append(j)
+    if normalize:
+        wsum = sum(np.sum(w) for w in weights)
+        for j in out:
+            j /= wsum
+    return out
 
 
 @nb.njit
@@ -210,7 +235,7 @@ def _extended_current_helper(qp, qm, w, m, d, f, lag):
     # note that the indices are effectively transposed here:
     # m[t, j, i] has i as the past and j as the future
     a = a.reshape(nf + lag - 2, 2 * (ni + 1), 2 * (ni + 1))
-    a = moving_matmul(a, lag)
+    a = moving_semigroup(a, lag, np.dot)
     a = a.reshape(nf - 1, 2, (ni + 1), 2, (ni + 1))
     a = a[:, 0, :, 1, :]
 
@@ -227,7 +252,7 @@ def _extended_current_helper(qp, qm, w, m, d, f, lag):
         for j in range(ni):
             for t in range(nf - 1):
                 # apply collective variable at current time
-                c = coeffs[t, i, j] * (f[j, t + 1] - f[i, t])
+                c = coeffs[t, i, j] * (f[j, t + 1] - f[i, t]) / lag
                 # split contribution symmetrically
                 result[i, t] += 0.5 * c  # past
                 result[j, t + 1] += 0.5 * c  # future

@@ -2,16 +2,30 @@ import numpy as np
 import scipy.sparse
 import scipy.sparse.linalg
 
+__all__ = [
+    "forward_committor",
+    "backward_committor",
+    "forward_mfpt",
+    "backward_mfpt",
+    "forward_feynman_kac",
+    "backward_feynman_kac",
+    "reweight",
+    "rate",
+    "current",
+    "integral",
+    "pointwise_integral",
+]
+
 
 def forward_committor(generator, weights, in_domain, guess):
     """Compute the forward committor.
 
     Parameters
     ----------
-    generator : (M, M) sparse matrix
+    generator : (M, M) sparse matrix of float
         Generator matrix.
     weights : (M,) ndarray of float
-        Reweighting factor to the invariant distribution for each point.
+        Change of measure to the invariant distribution for each point.
     in_domain : (M,) ndarray of bool
         Whether each point is in the domain.
     guess : (M,) ndarray of float
@@ -31,10 +45,10 @@ def backward_committor(generator, weights, in_domain, guess):
 
     Parameters
     ----------
-    generator : (M, M) sparse matrix
+    generator : (M, M) sparse matrix of float
         Generator matrix.
     weights : (M,) ndarray of float
-        Reweighting factor to the invariant distribution for each point.
+        Change of measure to the invariant distribution for each point.
     in_domain : (M,) ndarray of bool
         Whether each point is in the domain.
     guess : (M,) ndarray of float
@@ -54,7 +68,7 @@ def forward_mfpt(generator, weights, in_domain, guess):
 
     Parameters
     ----------
-    generator : (M, M) sparse matrix
+    generator : (M, M) sparse matrix of float
         Generator matrix.
     weights : (M,) ndarray of float
         Change of measure to the invariant distribution for each point.
@@ -78,7 +92,7 @@ def backward_mfpt(generator, weights, in_domain, guess):
 
     Parameters
     ----------
-    generator : (M, M) sparse matrix
+    generator : (M, M) sparse matrix of float
         Generator matrix.
     weights : (M,) ndarray of float
         Change of measure to the invariant distribution for each point.
@@ -102,7 +116,7 @@ def forward_feynman_kac(generator, weights, in_domain, function, guess):
 
     Parameters
     ----------
-    generator : (M, M) sparse matrix
+    generator : (M, M) sparse matrix of float
         Generator matrix.
     weights : (M,) ndarray of float
         Change of measure to the invariant distribution for each point.
@@ -119,25 +133,21 @@ def forward_feynman_kac(generator, weights, in_domain, function, guess):
         Solution of the Feynman-Kac formula at each point.
 
     """
-    weights = np.asarray(weights)
-    in_domain = np.asarray(in_domain)
-    function = np.where(in_domain, function, 0.0)
-    guess = np.asarray(guess)
+    w, d, f, g = np.broadcast_arrays(weights, in_domain, function, guess)
 
-    shape = weights.shape
-    assert in_domain.shape == shape
-    assert function.shape == shape
-    assert guess.shape == shape
+    size = w.size
+    shape = w.shape
+    assert generator.shape == (size, size)
 
-    d = in_domain.ravel()
-    f = function.ravel()
-    g = guess.ravel()
+    d = np.ravel(d)
+    f = np.ravel(f)
+    g = np.ravel(g)
 
     a = generator[d, :][:, d]
     b = -generator[d, :] @ g - f[d]
     coeffs = scipy.sparse.linalg.spsolve(a, b)
     return (
-        g + scipy.sparse.identity(len(g), format="csr")[:, d] @ coeffs
+        g + scipy.sparse.identity(size, format="csr")[:, d] @ coeffs
     ).reshape(shape)
 
 
@@ -146,7 +156,7 @@ def backward_feynman_kac(generator, weights, in_domain, function, guess):
 
     Parameters
     ----------
-    generator : (M, M) sparse matrix
+    generator : (M, M) sparse matrix of float
         Generator matrix.
     weights : (M,) ndarray of float
         Change of measure to the invariant distribution for each point.
@@ -163,27 +173,26 @@ def backward_feynman_kac(generator, weights, in_domain, function, guess):
         Solution of the Feynman-Kac formula at each point.
 
     """
-    pi = np.ravel(weights)
+    w, d, f, g = np.broadcast_arrays(weights, in_domain, function, guess)
+    pi = np.ravel(w)
     adjoint_generator = (
         scipy.sparse.diags(1.0 / pi) @ generator.T @ scipy.sparse.diags(pi)
     )
-    return forward_feynman_kac(
-        adjoint_generator, weights, in_domain, function, guess
-    )
+    return forward_feynman_kac(adjoint_generator, w, d, f, g)
 
 
 def reweight(generator):
-    """Compute the reweighting factors to the invariant distribution.
+    """Compute the change of measure to the invariant distribution.
 
     Parameters
     ----------
-    generator : (M, M) sparse matrix
+    generator : (M, M) sparse matrix of float
         Generator matrix.
 
     Returns
     -------
     (M,) ndarray of float
-        Reweighting factor at each point.
+        Change of measure at each point.
 
     """
     # w, v = sparse.linalg.eigs(tmat.T, k=1, which="LR")
@@ -203,23 +212,27 @@ def reweight(generator):
     return weights
 
 
-def rate(generator, forward_q, backward_q, weights, rxn_coords=None):
+def rate(
+    generator, forward_q, backward_q, weights, rxn_coords=None, normalize=True
+):
     """Compute the TPT rate.
 
     Parameters
     ----------
-    generator : (M, M) sparse matrix
+    generator : (M, M) sparse matrix of float
         Generator matrix.
     forward_q : (M,) ndarray of float
         Forward committor at each point.
     backward_q : (M,) ndarray of float
         Backward committor at each point.
-    weights : (M,) ndarray of float.
-        Reweighting factor at each point.
+    weights : (M,) ndarray of float
+        Change of measure at each point.
     rxn_coords : (M,) ndarray of float, optional
         Reaction coordinate at each point. This must be zero in the
         reactant state and one in the product state. If None, estimate
         the rate without using a reaction coordinate.
+    normalize : bool, optional
+        If True (default), normalize `weights` to one.
 
     Returns
     -------
@@ -227,43 +240,43 @@ def rate(generator, forward_q, backward_q, weights, rxn_coords=None):
         TPT rate.
 
     """
-    weights = np.asarray(weights)
-    forward_q = np.asarray(forward_q)
-    backward_q = np.asarray(backward_q)
+    w, qp, qm = np.broadcast_arrays(weights, forward_q, backward_q)
 
-    shape = weights.shape
-    assert forward_q.shape == shape
-    assert backward_q.shape == shape
+    size = w.size
+    shape = w.shape
+    assert generator.shape == (size, size)
 
-    pi_qm = (weights * backward_q).ravel()
-    qp = forward_q.ravel()
+    pi_qm = np.ravel(w * qm)
+    qp = np.ravel(qp)
 
     if rxn_coords is None:
-        numer = pi_qm @ generator @ qp
+        out = pi_qm @ generator @ qp
     else:
-        rxn_coords = np.asarray(rxn_coords)
-        assert rxn_coords.shape == shape
-        h = rxn_coords.ravel()
-        numer = pi_qm @ (generator @ (qp * h) - h * (generator @ qp))
-    denom = np.sum(weights)
-    return numer / denom
+        h = np.broadcast_to(rxn_coords, shape)
+        h = np.ravel(h)
+        out = pi_qm @ (generator @ (qp * h) - h * (generator @ qp))
+    if normalize:
+        out /= np.sum(weights)
+    return out
 
 
-def current(generator, forward_q, backward_q, weights, cv):
+def current(generator, forward_q, backward_q, weights, cv, normalize=True):
     """Compute the reactive current at each point.
 
     Parameters
     ----------
-    generator : (M, M) sparse matrix
+    generator : (M, M) sparse matrix of float
         Generator matrix.
     forward_q : (M,) ndarray of float
         Forward committor at each point.
     backward_q : (M,) ndarray of float
         Backward committor at each point.
     weights : (M,) ndarray of float.
-        Reweighting factor at each point.
+        Change of measure at each point.
     cv : (M,) ndarray of float
         Collective variable at each point.
+    normalize : bool
+        If True (default), normalize `weights` to one.
 
     Returns
     -------
@@ -271,78 +284,94 @@ def current(generator, forward_q, backward_q, weights, cv):
         Reactive current at each point.
 
     """
-    weights = np.asarray(weights)
-    forward_q = np.asarray(forward_q)
-    backward_q = np.asarray(backward_q)
+    w, qp, qm, h = np.broadcast_arrays(weights, forward_q, backward_q, cv)
 
-    shape = weights.shape
-    assert forward_q.shape == shape
-    assert backward_q.shape == shape
+    size = w.size
+    shape = w.shape
+    assert generator.shape == (size, size)
 
-    cv = np.broadcast_to(cv, shape)
-
-    pi_qm = (weights * backward_q).ravel()
-    qp = forward_q.ravel()
-    h = cv.ravel()
+    pi_qm = np.ravel(w * qm)
+    qp = np.ravel(qp)
+    h = np.ravel(h)
 
     forward_flux = pi_qm * (generator @ (qp * h) - h * (generator @ qp))
     backward_flux = ((pi_qm * h) @ generator - (pi_qm @ generator) * h) * qp
-    numer = 0.5 * (forward_flux - backward_flux)
-    denom = np.sum(weights)
-    return (numer / denom).reshape(shape)
+    out = 0.5 * (forward_flux - backward_flux)
+    if normalize:
+        out /= np.sum(weights)
+    return out.reshape(shape)
 
 
-def expectation(generator, forward_q, backward_q, weights, ks, kt):
-    weights = np.asarray(weights)
-    forward_q = np.asarray(forward_q)
-    backward_q = np.asarray(backward_q)
-    kt = np.asarray(kt)
+def integral(generator, forward_q, backward_q, weights, normalize=True):
+    """Integrate a TPT objective function over the reaction ensemble.
 
-    shape = weights.shape
-    assert forward_q.shape == shape
-    assert backward_q.shape == shape
-    assert kt.shape == shape
+    Parameter
+    ---------
+    generator : (M, M) sparse matrix of float
+        Generator matrix, modified to encode the TPT objective function.
+    forward_q : (M,) ndarray of float
+        Forward committor at each point.
+    backward_q : (M,) ndarray of float
+        Backward committor at each point.
+    weights : (M,) ndarray of float.
+        Change of measure at each point.
+    normalize : bool
+        If True (default), normalize `weights` to one.
 
-    pi_qm = (weights * backward_q).ravel()
-    qp = forward_q.ravel()
-    gen = generator.multiply(ks) + scipy.sparse.diags(kt.ravel())
+    Returns
+    -------
+    float
+        Integral of the objective function over the reaction ensemble.
 
-    numer = pi_qm @ gen @ qp
-    denom = np.sum(weights)
-    return numer / denom
+    """
+    w, qp, qm = np.broadcast_arrays(weights, forward_q, backward_q)
 
+    size = w.size
+    assert generator.shape == (size, size)
 
-def pointwise_expectation(generator, forward_q, backward_q, weights, ks, kt):
-    weights = np.asarray(weights)
-    forward_q = np.asarray(forward_q)
-    backward_q = np.asarray(backward_q)
-    kt = np.asarray(kt)
+    pi_qm = np.ravel(w * qm)
+    qp = np.ravel(qp)
 
-    shape = weights.shape
-    assert forward_q.shape == shape
-    assert backward_q.shape == shape
-    assert kt.shape == shape
-
-    pi_qm = (weights * backward_q).ravel()
-    qp = forward_q.ravel()
-    gen = generator.multiply(ks) + scipy.sparse.diags(kt.ravel())
-
-    numer = 0.5 * (pi_qm * (gen @ qp) + (pi_qm @ gen) * qp)
-    denom = np.sum(weights)
-    return (numer / denom).reshape(shape)
+    out = pi_qm @ generator @ qp
+    if normalize:
+        out /= np.sum(weights)
+    return out
 
 
-def combine_k(ks1, kt1, ks2, kt2):
-    kt1 = np.asarray(kt1)
-    kt2 = np.asarray(kt2)
-    shape = kt1.shape
-    size = kt1.size
+def pointwise_integral(
+    generator, forward_q, backward_q, weights, normalize=True
+):
+    """Calculate the contribution of each point to a TPT integral.
 
-    assert ks1.shape == (size, size)
-    assert ks2.shape == (size, size)
-    assert kt1.shape == shape
-    assert kt2.shape == shape
+    Parameter
+    ---------
+    generator : (M, M) sparse matrix of float
+        Generator matrix, modified to encode the TPT objective function.
+    forward_q : (M,) ndarray of float
+        Forward committor at each point.
+    backward_q : (M,) ndarray of float
+        Backward committor at each point.
+    weights : (M,) ndarray of float.
+        Change of measure at each point.
+    normalize : bool, optional
+        If True (default), normalize `weights` to one.
 
-    ks = ks1.multiply(ks2)
-    kt = kt1.ravel() * ks2.diagonal() + kt2.ravel() * ks1.diagonal()
-    return ks, kt.reshape(shape)
+    Returns
+    -------
+    (M,) ndarray of float
+        Contribution of each point to the TPT integral.
+
+    """
+    w, qp, qm = np.broadcast_arrays(weights, forward_q, backward_q)
+
+    size = w.size
+    shape = w.shape
+    assert generator.shape == (size, size)
+
+    pi_qm = np.ravel(w * qm)
+    qp = np.ravel(qp)
+
+    out = 0.5 * (pi_qm * (generator @ qp) + (pi_qm @ generator) * qp)
+    if normalize:
+        out /= np.sum(weights)
+    return out.reshape(shape)
