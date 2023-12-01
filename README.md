@@ -1,17 +1,16 @@
 # Dynamics of activation in the voltage-sensing domain of Ci-VSP
 
-This repository contains code for analyzing simulations of Ci-VSD for [ref. 1][1].
+This repository contains custom code for analyzing simulations of Ci-VSD for [ref. 1][1].
 
 ## Data
 Example data to run the create [Figure 5](./notebooks/figures/FIG1_S4.ipynb) of the publication can
-be obtained as a file `data.tar.gz` from [Zenodo](https://zenodo.org/record/7502084). The tarball can be unzipped
-using `tar -xzvf data.tar.gz`and the files used to generate the appropriate plots.
+be obtained as a file `data.tar.gz` as Source Data with the accompanying publication. The tarball can be unzipped
+using `tar -xzvf data.tar.gz`and the files used to generate the appropriate plots (see [notebooks](notebooks/figures/README.md)).
 
 ## Environment
-Most of the analysis is performed in [Jupyter notebooks](./notebooks/). The raw data
-is not in the repository, but can be obtained by contactinng [Spencer Guo](mailto:scguo@uchicago.edu)
-or [Aaron Dinner](mailto:dinner@uchicago.edu). Notebooks to produce relevant figures are under the 
-subfolder [figures](./notebooks/figures) along with a `README` file that provides further description. 
+Most of the analysis is performed in [Jupyter notebooks](./notebooks/). 
+Notebooks to produce relevant figures are under the subfolder [figures](./notebooks/figures) along with a `README` file that provides further description. 
+The data
 
 The environment to setup the analysis is using Python 3.9.x, and detailed
 packages used are listed in `requirements.txt`.
@@ -23,26 +22,26 @@ The primary dependencies are Jupyter notebooks
 - Numerical analysis
     - `numpy<1.22`
     - `scipy`
-    - `scikit-learn`
+    - `scikit-learn>=1.2`
     - `numba`
 - Plotting
     - `matplotlib`
     - `seaborn`
     - `prettypyplot` ([https://braniii.gitlab.io/prettypyplot/](https://braniii.gitlab.io/prettypyplot/))
 - MD analysis
-    - `MDAnalysis` ([MDAnalysis](https://www.mdanalysis.org/))
-    - `pyemma` ([PyEMMA](http://www.emma-project.org/))
-    - `mdtraj` ([MDTraj](https://www.mdtraj.org/))
+    - `MDAnalysis>=2.0` ([MDAnalysis](https://www.mdanalysis.org/))
+    - `pyemma` 2.5 ([PyEMMA](http://www.emma-project.org/))
+    - `mdtraj` 1.9 ([MDTraj](https://www.mdtraj.org/))
 - DGA/TPT analysis (from the Dinner group)
-    - `extq` (DGA calculations)
+    - `extq` ([DGA](https://github.com/chatipat/extq))
     - `ivac` ([Integrated VAC](https://github.com/chatipat/ivac))
 
 Other useful utility functions and plotting functions are found in 
 `python/util.py` and `python/plotting.py`.
 
 ### DGA calculations
-The `extq` package is provided as a package. The package can be installed
-by running `cd extq/` and `pip install -e .`
+The code to run DGA calculations is provided in the `extq` package. The package can be installed
+by cloning the repository `git clone https://github.com/chatipat/extq.git` and running `pip install -e extq`.
 
 To reproduce the DGA calculations, run the notebook `dga.ipynb` in `notebooks/figures` using the [example
 data](#data) provided.
@@ -69,8 +68,8 @@ These were used to equilibrate new structures for unbiased simulations by pullin
 ## References
 1. Guo, et al. [Dynamics of activation in the voltage-sensing domain of Ci-VSP.][1] *bioRxiv* **2022**.
 1. Li, et al. [Structural mechanism of voltage-dependent gating in an isolated voltage-sensing domain.][2] *Nat. Struct. Mol. Bio.* **2014**.
-1. Shen, et al. [Mechanism of Voltage Gating in the Voltage-Sensing Phosphatase Ci-VSP.][3] *bioRxiv* **2022**. 
+1. Shen, et al. [Mechanism of Voltage Gating in the Voltage-Sensing Phosphatase Ci-VSP.][3]  *PNAS* **2022**. 
 
 [1]: https://www.biorxiv.org/content/10.1101/2022.12.19.521128v2
 [2]: http://www.nature.com/articles/nsmb.2768
-[3]: https://www.biorxiv.org/content/10.1101/2022.02.17.480971v1
+[3]: https://www.pnas.org/doi/full/10.1073/pnas.2206649119
